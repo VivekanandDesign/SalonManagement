@@ -42,7 +42,41 @@ const app = express();
 // ── Security Middleware ──
 app.use(helmet());
 app.use(compression());
-app.use(cors({ origin: config.frontendUrl, credentials: true }));
+
+// CORS configuration - allow multiple origins for open-source deployment
+const allowedOrigins = [
+  config.frontendUrl, // From environment (localhost for dev)
+  'https://mysalonmanagement.netlify.app', // Production Netlify site
+  'http://localhost:5173', // Local development
+  'http://localhost:5174', // Local website
+  'http://localhost:5175', // Local app
+  /\.netlify\.app$/, // Allow all Netlify domains
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in allowed list
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json({ limit: '10kb' }));
 
 // ── Request Logging ──
