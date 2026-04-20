@@ -78,6 +78,27 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ── Root route ──
+app.get('/', (_req, res) => {
+  res.json({
+    message: 'Orrenza Salon Management API',
+    version: '1.0.0',
+    status: 'running',
+    docs: 'API endpoints available under /api/*',
+    endpoints: {
+      auth: '/api/auth',
+      customers: '/api/customers',
+      appointments: '/api/appointments',
+      services: '/api/services',
+      staff: '/api/staff',
+      dashboard: '/api/dashboard',
+      health: '/api/health'
+    },
+    frontend: 'Deploy the salon-app to access the admin dashboard',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // ── Routes ──
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
