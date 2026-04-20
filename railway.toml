@@ -1,0 +1,2 @@
+[services.backend]
+source = "salon-backend"
