@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 
-const API_BASE = '/api';
+const API_BASE = 'https://salonmanagement-mm1h.onrender.com/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();

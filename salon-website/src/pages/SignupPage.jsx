@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Sparkles, Check } from 'lucide-react';
 
-const API_BASE = '/api';
+const API_BASE = 'https://salonmanagement-mm1h.onrender.com/api';
 
 export default function SignupPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -34,7 +34,7 @@ export default function SignupPage() {
       if (!res.ok) throw new Error(data.message || 'Registration failed');
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      window.location.href = 'http://localhost:5173';
+      window.location.href = 'https://mysalonmanagement.netlify.app';
     } catch (err) {
       setError(err.message);
     } finally {
