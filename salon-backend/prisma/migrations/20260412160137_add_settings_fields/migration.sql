@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "settings" ADD COLUMN     "allowReceptionBooking" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "allowStylistView" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "appointmentReminder" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "autoBackup" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "backupFrequency" TEXT NOT NULL DEFAULT 'daily',
+ADD COLUMN     "birthdayWish" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "emailEnabled" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "followUp" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "followUpDays" INTEGER NOT NULL DEFAULT 3,
+ADD COLUMN     "gstNumber" TEXT,
+ADD COLUMN     "maxDiscountPercent" INTEGER NOT NULL DEFAULT 20,
+ADD COLUMN     "reminderHours" INTEGER NOT NULL DEFAULT 2,
+ADD COLUMN     "requireApprovalForDiscount" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "smsEnabled" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "tagline" TEXT DEFAULT 'Premium Salon & Beauty Services',
+ADD COLUMN     "whatsappEnabled" BOOLEAN NOT NULL DEFAULT true;

@@ -1,0 +1,868 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──── USERS (Staff / Auth) ────
+
+enum Role {
+  ADMIN
+  RECEPTIONIST
+  STYLIST
+  OWNER
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  FACEBOOK
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  password  String?
+  role      Role     @default(STYLIST)
+  isActive  Boolean  @default(true)
+  commissionPercent Float? // staff commission % on services
+
+  // OAuth fields
+  provider    AuthProvider @default(LOCAL)
+  googleId    String?      @unique
+  facebookId  String?      @unique
+  avatar      String?
+
+  // Email verification
+  isVerified      Boolean  @default(false)
+  verificationOtp String?
+  otpExpiresAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments  Appointment[] @relation("StylistAppointments")
+  staffServices StaffService[]
+  expenses      Expense[]     @relation("UserExpenses")
+  campaigns     Campaign[]    @relation("UserCampaigns")
+  commissions   StaffCommission[]
+  tips          Tip[]
+
+  @@map("users")
+}
+
+// ──── CUSTOMERS ────
+
+enum CustomerTag {
+  NEW
+  REGULAR
+  VIP
+  INACTIVE
+}
+
+enum VIPTier {
+  NONE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model Customer {
+  id          String      @id @default(uuid())
+  name        String
+  phone       String      @unique
+  email       String?
+  dob         DateTime?
+  gender      String?
+  tag         CustomerTag @default(NEW)
+  vipTier     VIPTier     @default(NONE)
+  notes       String?
+  totalVisits Int         @default(0)
+  totalSpent  Float       @default(0)
+  lastVisitAt DateTime?
+  referredBy  String?
+  // Enhanced preferences
+  beverage      String?
+  musicPref     String?
+  allergies     String?
+  preferredStylistId String?
+  area          String?     // locality/area for geo campaigns
+
+  walletBalance Float   @default(0)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  appointments   Appointment[]
+  invoices       Invoice[]
+  messageLogs    MessageLog[]
+  loyaltyRewards LoyaltyReward[]
+  campaignLogs   CampaignLog[]
+  feedbacks      Feedback[]
+  memberships    CustomerMembership[]
+  walletTxns     WalletTransaction[]
+  giftVouchersPurchased GiftVoucher[]  @relation("VoucherPurchaser")
+  giftVouchersRedeemed  GiftVoucher[]  @relation("VoucherRedeemer")
+  referralsMade  Referral[]     @relation("Referrer")
+  referralsReceived Referral[] @relation("Referred")
+  waitlistEntries WaitlistEntry[]
+  queueEntries    QueueEntry[]
+
+  @@map("customers")
+}
+
+// ──── SERVICES ────
+
+model ServiceCategory {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  services Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id         String   @id @default(uuid())
+  name       String
+  categoryId String
+  duration   Int      // minutes
+  price      Float
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category          ServiceCategory     @relation(fields: [categoryId], references: [id])
+  appointmentItems  AppointmentService[]
+  invoiceItems      InvoiceItem[]
+  staffServices     StaffService[]
+  comboItems        ComboItem[]
+  upsellsFrom       Upsell[] @relation("UpsellBase")
+  upsellsTo         Upsell[] @relation("UpsellSuggestion")
+  membershipServices MembershipPlanService[]
+
+  @@map("services")
+}
+
+model StaffService {
+  userId    String
+  serviceId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, serviceId])
+  @@map("staff_services")
+}
+
+// ──── COMBOS / PACKAGES ────
+
+model Combo {
+  id        String      @id @default(uuid())
+  name      String
+  price     Float
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  items ComboItem[]
+
+  @@map("combos")
+}
+
+model ComboItem {
+  comboId   String
+  serviceId String
+
+  combo   Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([comboId, serviceId])
+  @@map("combo_items")
+}
+
+// ──── APPOINTMENTS ────
+
+enum AppointmentStatus {
+  BOOKED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  customerId  String
+  stylistId   String
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  status      AppointmentStatus @default(BOOKED)
+  isWalkin    Boolean           @default(false)
+  isGroup     Boolean           @default(false)
+  groupName   String?           // "Priya's Bridal Party"
+  groupId     String?           // links appointments in same group
+  notes       String?
+  beforePhoto String?
+  afterPhoto  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  customer Customer             @relation(fields: [customerId], references: [id])
+  stylist  User                 @relation("StylistAppointments", fields: [stylistId], references: [id])
+  services AppointmentService[]
+  invoice  Invoice?
+  feedback Feedback?
+
+  @@map("appointments")
+}
+
+model AppointmentService {
+  appointmentId String
+  serviceId     String
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id])
+
+  @@id([appointmentId, serviceId])
+  @@map("appointment_services")
+}
+
+// ──── BILLING / INVOICES ────
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  WALLET
+  PENDING
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  DUE
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  customerId    String
+  appointmentId String?       @unique
+  subtotal      Float
+  discountType  String?       // "flat" or "percentage"
+  discountValue Float?
+  totalAmount   Float
+  walletUsed    Float?        @default(0)
+  paymentMode     PaymentMode   @default(CASH)
+  paymentStatus   PaymentStatus @default(PAID)
+  couponCode      String?
+  couponDiscount  Float?
+  giftVoucherId   String?
+  voucherDiscount Float?        @default(0)
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  appointment Appointment?  @relation(fields: [appointmentId], references: [id])
+  items       InvoiceItem[]
+  productItems ProductSale[]
+  commissions  StaffCommission[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id        String @id @default(uuid())
+  invoiceId String
+  serviceId String
+  price     Float
+  quantity  Int    @default(1)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@map("invoice_items")
+}
+
+// ──── LOYALTY ────
+
+model LoyaltyConfig {
+  id                 String  @id @default(uuid())
+  milestoneName      String  // e.g. "10th Visit Reward"
+  visitThreshold     Int     // e.g. 10
+  discountType       String  // "flat" or "percentage"
+  discountValue      Float   // e.g. 20
+  isActive           Boolean @default(true)
+
+  rewards LoyaltyReward[]
+
+  @@map("loyalty_configs")
+}
+
+model LoyaltyReward {
+  id              String   @id @default(uuid())
+  customerId      String
+  loyaltyConfigId String
+  isRedeemed      Boolean  @default(false)
+  redeemedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  loyaltyConfig LoyaltyConfig @relation(fields: [loyaltyConfigId], references: [id])
+
+  @@map("loyalty_rewards")
+}
+
+// ──── COMMUNICATIONS ────
+
+enum MessageType {
+  REMINDER_24H
+  REMINDER_2H
+  THANK_YOU
+  BIRTHDAY
+  RE_ENGAGEMENT
+  MANUAL
+  CONFIRMATION
+  REMINDER
+  INVOICE
+  LOYALTY
+  CUSTOM
+  RESCHEDULE
+  CANCELLATION
+  NO_SHOW_FOLLOWUP
+  FEEDBACK_REQUEST
+  REBOOKING
+  GOOGLE_REVIEW
+  MILESTONE
+  REFERRAL
+  MEMBERSHIP_RENEWAL
+  WALLET_LOW
+  GIFT_VOUCHER
+  WAITLIST_ALERT
+  QUEUE_NOTIFICATION
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model MessageLog {
+  id         String        @id @default(uuid())
+  customerId String
+  type       MessageType
+  channel    String        @default("whatsapp") // whatsapp, sms
+  content    String
+  status     MessageStatus @default(QUEUED)
+  sentAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("message_logs")
+}
+
+// ──── SETTINGS ────
+
+model Settings {
+  id           String  @id @default(uuid())
+  salonName    String  @default("My Salon")
+  logo         String?
+  address      String?
+  phone        String?
+  email        String?
+  openTime     String  @default("09:00")
+  closeTime    String  @default("21:00")
+  weeklyOff    String? // e.g. "Monday"
+  currency     String  @default("INR")
+
+  workingHours String? // JSON: { monday: { open, close, off }, ... }
+
+  // API keys
+  whatsappApiKey String?
+  smsApiKey      String?
+
+  // Message templates
+  reminderTemplate       String?
+  birthdayTemplate       String?
+  thankYouTemplate       String?
+  reEngagementTemplate   String?
+  confirmationTemplate   String?
+  rescheduleTemplate     String?
+  cancellationTemplate   String?
+  noShowFollowupTemplate String?
+  reEngagementDays       Int     @default(45)
+
+  // Online booking & feedback
+  onlineBookingEnabled  Boolean @default(true)
+  feedbackRequestTemplate String?
+  rebookingTemplate      String?
+
+  // Google Review
+  googleReviewUrl        String?
+  googleReviewTemplate   String?
+
+  // Milestone templates
+  milestoneTemplate      String?
+
+  // Referral
+  referralRewardAmount   Float?  @default(200)
+  referralTemplate       String?
+
+  // Wallet
+  walletLowBalanceThreshold Float? @default(200)
+  walletLowTemplate      String?
+
+  // Membership renewal
+  membershipRenewalTemplate String?
+
+  // Live Queue
+  queueEnabled              Boolean @default(true)
+  queueAutoRefreshSec       Int     @default(15)
+  queueEstimatedWaitMin     Int     @default(15)
+  queueNotifyOnCall         Boolean @default(true)
+  queueCallTemplate         String?
+  queueMaxWaiting           Int     @default(20)
+
+  // Staff
+  defaultCommissionPercent  Float   @default(0)
+  attendanceTrackingEnabled Boolean @default(true)
+  maxAppointmentsPerStylist Int     @default(10)
+  minBreakMinutes           Int     @default(30)
+  staffCanViewOwnCommission Boolean @default(true)
+  staffCanViewOwnSchedule   Boolean @default(true)
+
+  // GST
+  gstNumber                 String?
+
+  // Notifications
+  smsEnabled                Boolean @default(true)
+  whatsappEnabled           Boolean @default(true)
+  emailEnabled              Boolean @default(false)
+  appointmentReminder       Boolean @default(true)
+  reminderHours             Int     @default(2)
+  birthdayWish              Boolean @default(true)
+  followUp                  Boolean @default(true)
+  followUpDays              Int     @default(3)
+
+  // Access Control
+  allowReceptionBooking       Boolean @default(true)
+  allowStylistView            Boolean @default(true)
+  requireApprovalForDiscount  Boolean @default(true)
+  maxDiscountPercent          Int     @default(20)
+
+  // Backup Preferences
+  autoBackup                Boolean @default(true)
+  backupFrequency           String  @default("daily")
+
+  // Tagline
+  tagline                   String? @default("Premium Salon & Beauty Services")
+
+  @@map("settings")
+}
+
+// ──── ATTENDANCE ────
+
+model Attendance {
+  id     String   @id @default(uuid())
+  userId String
+  date   DateTime @db.Date
+  status String   @default("present") // present, absent, half_day
+
+  @@unique([userId, date])
+  @@map("attendance")
+}
+
+// ──── EXPENSES ────
+
+model ExpenseCategory {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  expenses Expense[]
+
+  @@map("expense_categories")
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  categoryId  String
+  title       String
+  amount      Float
+  date        DateTime @db.Date
+  paymentMode String   @default("CASH") // CASH, UPI, CARD
+  notes       String?
+  receiptUrl  String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category  ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy User            @relation("UserExpenses", fields: [createdById], references: [id])
+
+  @@map("expenses")
+}
+
+// ──── FEEDBACK ────
+
+model Feedback {
+  id            String   @id @default(uuid())
+  customerId    String
+  appointmentId String?  @unique
+  rating        Int      // 1-5 stars
+  comment       String?
+  googleReviewSent Boolean @default(false)
+  createdAt     DateTime @default(now())
+
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("feedbacks")
+}
+
+// ──── CAMPAIGNS ────
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum TargetAudience {
+  ALL
+  REGULAR
+  VIP
+  INACTIVE
+  NEW
+  AREA
+}
+
+model Campaign {
+  id                 String         @id @default(uuid())
+  name               String
+  description        String?
+  couponCode         String         @unique
+  discountType       String         // "percentage" or "flat"
+  discountValue      Float
+  minBillAmount      Float?         @default(0)
+  maxDiscount        Float?
+  validFrom          DateTime
+  validTo            DateTime
+  applicableServices String?        // JSON array of service IDs, null = all
+  targetAudience     TargetAudience @default(ALL)
+  targetArea         String?        // for AREA targeting
+  messageTemplate    String
+  scheduledAt        DateTime?
+  status             CampaignStatus @default(DRAFT)
+  sentCount          Int            @default(0)
+  deliveredCount     Int            @default(0)
+  redeemedCount      Int            @default(0)
+  createdById        String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  createdBy User          @relation("UserCampaigns", fields: [createdById], references: [id])
+  logs      CampaignLog[]
+
+  @@map("campaigns")
+}
+
+model CampaignLog {
+  id         String   @id @default(uuid())
+  campaignId String
+  customerId String
+  status     String   @default("SENT") // SENT, DELIVERED, FAILED
+  sentAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("campaign_logs")
+}
+
+// ──── MEMBERSHIP / SUBSCRIPTION ────
+
+model MembershipPlan {
+  id          String  @id @default(uuid())
+  name        String  // "Gold Monthly Plan"
+  description String?
+  price       Float   // monthly price
+  durationDays Int    @default(30) // plan duration
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  services   MembershipPlanService[]
+  customers  CustomerMembership[]
+
+  @@map("membership_plans")
+}
+
+model MembershipPlanService {
+  id          String @id @default(uuid())
+  planId      String
+  serviceId   String
+  usageLimit  Int    // how many times per period (0 = unlimited)
+
+  plan    MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  service Service        @relation(fields: [serviceId], references: [id])
+
+  @@unique([planId, serviceId])
+  @@map("membership_plan_services")
+}
+
+model CustomerMembership {
+  id          String   @id @default(uuid())
+  customerId  String
+  planId      String
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  autoRenew   Boolean  @default(true)
+  usageLog    String?  // JSON: { serviceId: usedCount }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer       @relation(fields: [customerId], references: [id])
+  plan     MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@map("customer_memberships")
+}
+
+// ──── WALLET / CREDITS ────
+
+enum WalletTxnType {
+  TOPUP
+  PAYMENT
+  REFUND
+  BONUS
+}
+
+model WalletTransaction {
+  id          String        @id @default(uuid())
+  customerId  String
+  type        WalletTxnType
+  amount      Float
+  balance     Float         // balance after txn
+  description String?
+  createdAt   DateTime      @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+// ──── GIFT VOUCHERS ────
+
+enum VoucherStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+}
+
+model GiftVoucher {
+  id            String        @id @default(uuid())
+  code          String        @unique
+  amount        Float
+  balance       Float         // remaining balance
+  purchaserId   String?
+  redeemedById  String?
+  recipientName  String?
+  recipientPhone String?
+  message        String?
+  status         VoucherStatus @default(ACTIVE)
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+
+  purchaser  Customer? @relation("VoucherPurchaser", fields: [purchaserId], references: [id])
+  redeemedBy Customer? @relation("VoucherRedeemer", fields: [redeemedById], references: [id])
+
+  @@map("gift_vouchers")
+}
+
+// ──── UPSELL / ADD-ON SUGGESTIONS ────
+
+model Upsell {
+  id                String  @id @default(uuid())
+  baseServiceId     String
+  suggestedServiceId String
+  prompt            String  // "Add deep conditioning for just ₹200?"
+  discountedPrice   Float?  // special add-on price
+  isActive          Boolean @default(true)
+
+  baseService      Service @relation("UpsellBase", fields: [baseServiceId], references: [id])
+  suggestedService Service @relation("UpsellSuggestion", fields: [suggestedServiceId], references: [id])
+
+  @@unique([baseServiceId, suggestedServiceId])
+  @@map("upsells")
+}
+
+// ──── PRODUCT SALES ────
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  brand       String?
+  price       Float
+  stock       Int      @default(0)
+  restockDays Int?     @default(45)  // reminder after N days
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sales ProductSale[]
+
+  @@map("products")
+}
+
+model ProductSale {
+  id          String   @id @default(uuid())
+  productId   String
+  invoiceId   String?
+  customerId  String?
+  quantity    Int      @default(1)
+  price       Float
+  createdAt   DateTime @default(now())
+
+  product  Product  @relation(fields: [productId], references: [id])
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@map("product_sales")
+}
+
+// ──── REFERRAL REWARDS ────
+
+model Referral {
+  id             String   @id @default(uuid())
+  referrerId     String
+  referredId     String
+  referrerReward Float?   // reward amount for referrer
+  referredReward Float?   // reward amount for new customer
+  isConverted    Boolean  @default(false)  // referred customer completed a visit
+  convertedAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  referrer Customer @relation("Referrer", fields: [referrerId], references: [id])
+  referred Customer @relation("Referred", fields: [referredId], references: [id])
+
+  @@unique([referrerId, referredId])
+  @@map("referrals")
+}
+
+// ──── HAPPY HOUR / OFF-PEAK DISCOUNTS ────
+
+model HappyHour {
+  id            String  @id @default(uuid())
+  name          String  // "Midweek Special"
+  daysOfWeek    String  // JSON: ["monday","tuesday","wednesday"]
+  startTime     String  // "11:00"
+  endTime       String  // "14:00"
+  discountType  String  // "percentage" or "flat"
+  discountValue Float
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+
+  @@map("happy_hours")
+}
+
+// ──── WAITING LIST ────
+
+model WaitlistEntry {
+  id          String   @id @default(uuid())
+  customerId  String
+  date        DateTime @db.Date
+  preferredTime String?  // "14:00"
+  serviceIds  String?   // JSON array
+  isNotified  Boolean  @default(false)
+  isFulfilled Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@map("waitlist_entries")
+}
+
+// ──── LIVE QUEUE ────
+
+enum QueueStatus {
+  WAITING
+  IN_SERVICE
+  COMPLETED
+  LEFT
+}
+
+model QueueEntry {
+  id           String      @id @default(uuid())
+  customerId   String?
+  customerName String?     // for walk-ins without customer record
+  phone        String?
+  serviceIds   String?     // JSON array
+  estimatedWait Int?       // minutes
+  status       QueueStatus @default(WAITING)
+  joinedAt     DateTime    @default(now())
+  calledAt     DateTime?
+  completedAt  DateTime?
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@map("queue_entries")
+}
+
+// ──── STAFF COMMISSION & TIPS ────
+
+model StaffCommission {
+  id          String   @id @default(uuid())
+  userId      String
+  invoiceId   String
+  amount      Float
+  createdAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("staff_commissions")
+}
+
+model Tip {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Float
+  paymentMode String   @default("CASH")
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("tips")
+}
+
+// ──── VIP TIER CONFIG ────
+
+model VIPTierConfig {
+  id              String  @id @default(uuid())
+  tier            VIPTier @unique
+  minVisits       Int     @default(0)
+  minSpent        Float   @default(0)
+  discountPercent Float   @default(0)
+  perks           String? // JSON: ["priority_booking","free_drink"]
+
+  @@map("vip_tier_configs")
+}

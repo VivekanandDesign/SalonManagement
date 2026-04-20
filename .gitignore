@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build output
+salon-app/dist/
+salon-app/dist-ssr/
+
+# WhatsApp auth session
+salon-backend/whatsapp-auth/
+
+# Generated Prisma client
+salon-backend/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Coverage & Testing
+coverage/
+*.swo
+
+# Logs
+*.log
+
+# Prisma generated client (regenerated on install)
+salon-backend/generated/
