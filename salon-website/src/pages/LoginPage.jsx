@@ -47,8 +47,8 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Google login failed');
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('glowdesk_token', data.token);
+      localStorage.setItem('glowdesk_user', JSON.stringify(data.user));
       window.location.href = 'https://mysalonmanagement.netlify.app';
     } catch (err) {
       setError(err.message);
