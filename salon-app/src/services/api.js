@@ -1,5 +1,5 @@
 // Use production API URL for deployed app, fallback to local development
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://salonmanagement-mm1h.onrender.com';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://salon-backend-production-eb30.up.railway.apprailway.app';
 
 function getToken() {
   const saved = localStorage.getItem('glowdesk_token');
