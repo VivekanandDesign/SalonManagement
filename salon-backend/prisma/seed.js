@@ -62,6 +62,20 @@ async function main() {
     },
   });
 
+  // ── Owner User ──
+  const ownerPassword = await bcrypt.hash('Kiran@2026', 12);
+  const owner = await prisma.user.upsert({
+    where: { email: 'kiran@orrenza.salon' },
+    update: {},
+    create: {
+      name: 'Kiran',
+      email: 'kiran@orrenza.salon',
+      password: ownerPassword,
+      role: 'OWNER',
+      isVerified: true,
+    },
+  });
+
   // ── Stylists ──
   const stylistPassword = await bcrypt.hash(process.env.SEED_STYLIST_PASSWORD || 'stylist123', 12);
   const stylists = [];
@@ -442,6 +456,7 @@ async function main() {
   console.log(`   💬 ${msgCount} messages`);
   console.log('');
   console.log('Login credentials:');
+  console.log('  Owner:        kiran@orrenza.salon / Kiran@2026');
   console.log('  Admin:        admin@orrenza.com / admin123');
   console.log('  Receptionist: reception@orrenza.com / recep123');
   console.log('  Stylist:      priya@orrenza.com / stylist123');
