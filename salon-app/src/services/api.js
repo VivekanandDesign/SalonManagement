@@ -1,5 +1,5 @@
 // Use production API URL for deployed app, fallback to local development
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://salon-backend-production-eb30.up.railway.apprailway.app';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://salon-backend-production-eb30.up.railway.app';
 
 function getToken() {
   const saved = localStorage.getItem('glowdesk_token');
