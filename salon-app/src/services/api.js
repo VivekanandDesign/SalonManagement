@@ -1,5 +1,10 @@
-// Use production API URL for deployed app, fallback to local development
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://salon-backend-production-eb30.up.railway.app';
+// Use the local Vite proxy by default and normalize deployed API URLs to include `/api`.
+function normalizeApiBaseUrl(rawBase) {
+  if (!rawBase) return '/api';
+  return rawBase.endsWith('/api') ? rawBase : `${rawBase.replace(/\/+$/, '')}/api`;
+}
+
+const API_BASE = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE);
 
 function getToken() {
   const saved = localStorage.getItem('glowdesk_token');
